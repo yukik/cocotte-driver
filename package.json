@@ -1,0 +1,29 @@
+{
+  "name": "cocotte-driver",
+  "description": "database driver super class",
+  "homepage": "https://github.com/yukik/cocotte-driver",
+  "keywords": [
+    "cocotte",
+    "database"
+  ],
+  "dependencies": {
+  },
+  "author": "Yuki Kurata <yuki.kurata@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/yukik/cocotte-driver.git"
+  },
+  "main": "lib/driver.js",
+  "version": "0.1.0",
+  "scripts": {
+    "test": "node ./test/test.js"
+  },
+  "directories": {
+    "example": "example",
+    "test": "test"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yukik/cocotte-driver/issues"
+  }
+}
