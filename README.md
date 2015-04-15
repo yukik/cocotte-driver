@@ -19,6 +19,7 @@ cocotte-driver
       + CONNECTION_STATES.BROKEN   : 壊れている
   + 規定値 CONNECTION_STATES.CLOSED
   + 読取専用です
+  + 一度、CONNECTION_STATES.BROKENに設定されるとメソッドを実行できなくなる
 
 ## 実行メソッド数
 
@@ -214,11 +215,13 @@ brokenイベントは値がありません
       + {Object}   selector 抽出条件
           + 例は以下のとおり
             + `{name: 'foo'}`
-            + `{name: {like: '%foo%'}}`
-            + `{age: {gt: 10, lte: 20}}`
-            + `{level: [1, 3, 5]}`
-          + 以上・以下はgte・lte、超・未満はgt・ltです
-          + 複数の値の内ひとつに該当する場合は配列を指定します
+            + `{name: /foo/}`
+            + `{age: {$gt: 10, $lte: 20}}`
+            + `{level: {$in: [1, 3, 5]}}`
+          + 文字列の一部への一致は正規表現を指定します
+          + 以上・以下は$gte・$lte、超・未満は$gt・$ltです
+          + 複数の値の内ひとつに該当する場合は$inと配列を指定します
+          + MongoDBの[Selector](http://docs.mongodb.org/manual/reference/sql-comparison/)に準拠しています
       + {Array}    fields 取得フィールド名
           + nullで全てのフィールドを指定したことになります
       + {Array}    sort ソート順
@@ -291,6 +294,19 @@ brokenイベントは値がありません
   + イベント save
       + 値 `{table: tableName, row: row, before: beforeRowState}`
       + beforeのrowStateがADDED,MODIFIED,DELETEDのみイベントが発生します
+  + 行状態の更新
+      + saveメソッドを実行後、行状態を変更します
+      + 更新に成功した場合
+          + 更新対象が存在した場合、ROW_STATES.SAVE_SUCCESS
+          + 更新対象が存在しなかった場合、ROW_STATES.DETACHED
+      + 更新に失敗した場合、ROW_STATES.SAVE_FAILURE
+      + cocotte-rowを行として更新にした場合は、行状態が即座に書き換えられます
+          + 追加・更新の成功し対象行が存在する、ROW_STATES.UNCHANGED
+          + 追加・更新の成功し対象行が存在しない、ROW_STATES.DETACHED
+          + 追加失敗、ROW_STATES.ADDED
+          + 更新失敗、ROW_STATES.MODIFIED
+          + 削除成功、ROW_STATES.DETACHED
+          + 削除失敗、ROW_STATES.DELETED
 
 # 行状態
 
@@ -307,35 +323,36 @@ var row = {
 driver.save(row);
 ```
 
-各値は以下の５つ存在します
+各値は以下の８つ存在します
 
   + ROW_STATES.UNCHANGED
       + 変更なし
-      + 実際の値 0
       + 保存時は何もしない
   + ROW_STATES.ADDED
       + 追加予定
-      + 実際の値 1
       + 保存時は追加、UNCHANGEDに遷移
       + rowIdが存在する場合はその値の行が存在しない場合に追加、存在する場合は例外発行
       + rowIdが存在しない場合は、追加後にrowIdをオブジェクトに追加
   + ROW_STATES.MODIFIED
       + 変更予定
-      + 実際の値 2
       + 保存時は更新、UNCHANGEDに遷移
       + 行番号が設定されていない場合や、一致する行が存在しない場合は例外発行
   + ROW_STATES.DELETED
       + 削除予定
-      + 実際の値 3
       + 保存時は削除、DETACHEDに遷移
       + 行番号が設定されていない場合や、一致する行が存在しない場合は例外発行
   + ROW_STATES.DETACHED
       + 削除済み
-      + 実際の値 4
+      + データベースに存在しない行です
       + 保存時は何もしない
   + ROW_STATES.SAVING
       + 保存中
-      + 実際の値 5
+      + 保存時は何もしない
+  + ROW_STATES.SAVE_SUCCESS
+      + 保存成功
+      + 保存時は何もしない
+  + ROW_STATES.SAVE_FAILURE
+      + 保存失敗
       + 保存時は何もしない
 
 # 継承クラス実装時
@@ -541,5 +558,4 @@ db.save(table, row)(function(err) {
   });
 });
 ```
-
 
