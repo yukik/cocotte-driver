@@ -14,7 +14,7 @@
     "url": "git://github.com/yukik/cocotte-driver.git"
   },
   "main": "lib/driver.js",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "scripts": {
     "test": "node ./test/test.js"
   },

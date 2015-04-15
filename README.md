@@ -65,7 +65,7 @@ brokenイベントは値がありません
 
 ## 接続を開く
 
-  このメソッドを外部から明示的に使用することはありません
+  このメソッドを外部から明示的に使用することはありません  
   各メソッドの実行時に自動的に接続が開かれます
 
   + メソッド名 open
@@ -76,8 +76,9 @@ brokenイベントは値がありません
  
 ## 接続を閉じる
 
-  このメソッドを外部から明示的に使用することはありません
-  各メソッドが終了してから一定時間経過すると接続が解除されます
+  このメソッドを外部から明示的に使用することはありません  
+  不用意にこのメソッドを呼び出すと、実行中のメソッドが結果を取得できなくなります  
+  各メソッドが終了してから接続持続時間が経過すると接続が解除されます
 
   + メソッド名 close
   + 引数なし
@@ -342,20 +343,40 @@ driver.save(row);
 継承クラスを実装する場合は、次のMongoDBのドライバの例で解説します
 
 ```
-var util = require('util');
 var MongoDB = require('mongodb');
 var Driver = require('cocotte-driver');
+var helper = require('cocotte-helper');
 
 // クラス
 function Mongo (config) {
+  // 初期化引数をテストし、プロパティに複製します
+  config = config || {};
+  helper.copy(config, this);
+  Driver.call(this, config);
   var server = new MongoDB.Server(config.host || '127.0.0.1', config.port || 27017);
 
   //実際のデータベース操作を担当するオブジェクト
   this.db = new MongoDB.Db(config.dbname || 'cocotte', server, {safe: true});
 }
 
-// ドライバを継承する
-util.inherits(Mongo, Driver);
+// プロパティ情報を設定します
+Mongo.properties = {
+  host: {
+    type: String,
+    description: ['ホスト','省略時は127.0.0.1が設定されます']
+  },
+  port: {
+    type: Number,
+    description: ['ポート番号', '省略時は27017が設定されます']
+  },
+  dbname: {
+    type: String,
+    description: ['データベース名', '省略時はcocotteが設定されます']
+  }
+};
+
+// ドライバを継承します
+helper.inherits(Mongo, Driver);
 
 // 接続を開きます
 Mongo.prototype.open = function open () {
@@ -383,20 +404,20 @@ Mongo.prototype.getTables = function getTables() {
 
   return function getTablesThunk (callback) {
 
-    // 必ずstartメソッドを使用して実処理を記述する
+    // 必ずstartメソッドを使用して実処理を記述します
     self.start(callback, function(){
 
-      // 実際のテーブル一覧の取得処理
+      // 実際のテーブル一覧の取得を処理します
       self.db.collectionNames(function(err, results) {
 
-        // 必ずendメソッドを使用して処理を終了する
+        // 必ずendメソッドを使用して処理を終了します
         self.end(callback, err || formatTableNames(results));
       });
     });
   };
 };
 
-// テーブル一覧を配列に変換
+// テーブル一覧を配列に変換します
 function formatTableNames(results) {
   return results.reduce(function (x, item) {
     var names = item.name.split('.');
@@ -407,28 +428,31 @@ function formatTableNames(results) {
   }, []);
 }
 
-// 他のメソッドは省略
+// (他のメソッドは省略)
 
 module.exports = exports = Mongo;
 ```
 
+メソッドはすべて、callback関数を返す高階関数になっていますが、  
 open,closeのメソッドは特に難しいところはありません  
 callback関数の第二引数にそれぞれ正しく接続、切断の状態をBooleanで返します
 
-その他のコマンドは、データベースに接続できる状態から実装する必要があります  
+その他のメソッドは、実際にはデータベースに接続できる状態から実装する必要があります  
+しかし、これらを愚直に実装するとメソッド本来の処理内容以外に煩雑なソースコードを記述しなくてはいけません  
 これらを簡素に記述するために、必ずstart,endメソッドを使用して実装してください  
 
   + startメソッド
       + 第一引数に結果を返すコールバック関数を指定します  
-      + 第二引数に、処理内容を記述します  
+      + 第二引数に、処理内容を記述した関数を指定します
   + endメソッド
       + 第一引数に結果を返すコールバック関数を指定します
       + 第二引数に、結果を指定します  
-          + 結果に例外オブジェクトを渡すと、例外を発行するように自動的に設定します  
+          + 結果はメソッドが返したい値もしくは例外オブジェクトを指定します
+          + 例外オブジェクトの場合は、例外を発行するように自動的に判別します  
       + 第三引数に、発行するイベントを指定します
-          + 省略可能です
-          + イベントは、正常な結果を取得したときのみ、値に結果を設定して発行します
-      + 第四引数に、イベントの値を指定します
+          + イベントを発行しない場合は省略可能です
+          + 結果に例外オブジェクトが指定された場合は、イベントは発行されません
+      + 第四引数に、イベントの発行に伴い通知する値を指定します
           + 省略可能です
           + 値はメソッド毎に形式が決められています
           + 詳しくは各メソッドのイベントの項を参照してください
@@ -445,37 +469,77 @@ db.getTables()(function(err, tables) {
 
 # 非同期処理の簡素な記述方法
 
-coモジュールを使用することで、非同期処理を簡単に記述することができます  
-同期的な記述がされているが、実際には非同期で動作するため保守しやすいソースコードになります  
+coモジュールやcocotte-flowモジュールを使用することで、非同期処理を簡単に記述することができます  
+同期的な記述が可能になり、保守しやすいソースコードになります  
 
-ただし、yieldキーワードをサポートするためには、--harmonyオプションを追加してnodeコマンドを実行してください
+ただし、ジェネレータをサポートしている必要があり、harmonyオプションを追加してnodeコマンドを実行してください
+
+以下はcocotte-flowモジュールを使用したMongoDBドライバでの行の操作の例です
 
 ```
-var co = require('co');
-var db = new Mongo();
+var Driver = require('cocotte-driver-mongo');
+var db = new Driver();
+var flow = require('cocotte-flow');
 
-co(function*(){
+flow(function*(){
 
-  var tables = yield db.getTables();
-
-  var row = {
-    name: 'foo',
-    rowState: db.ROW_STATES.ADDED
-  };
+  var table = 'table1';
 
   // 追加
-  yield db.save('table1', row);
-
-  row.name = 'bar';
-  row.rowState = db.ROW_STATE.MODIFIED;
+  var row = {
+    field1: 'foo',
+    field2: 100,
+    rowState: Driver.ROW_STATES.ADDED
+  };
+  yield db.save(table, row);
 
   // 更新
-  yield db.save('table1', row);
+  row.field1 = 'bar';
+  row.rowState = Driver.ROW_STATES.MODIFIED;
+  yield db.save(table, row);
 
-})();
+  // 削除
+  row.rowState = Driver.ROW_STATES.DELETED;
+  yield db.save(table, row);
+
+  console.log('done');
+});
 ```
 
+cocotte-flowモジュールを使用しない場合は次のようになります  
+非同期処理が複数重なるとネストが深くなり可視性が著しく劣ります  
+ジェネレータが使用できる環境では前述の方法を推奨します
 
+```
+var Driver = require('cocotte-driver-mongo');
+var db = new Driver();
 
+var table = 'table1';
+
+// 追加
+var row = {
+  field1: 'foo',
+  field2: 100,
+  rowState: Driver.ROW_STATES.ADDED
+};
+db.save(table, row)(function(err) {
+  if (err) {throw err;}
+
+  // 更新
+  row.field1 = 'bar';
+  row.rowState = Driver.ROW_STATES.MODIFIED;
+  db.save(table, row)(function (err) {
+    if (err) {throw err;}
+
+    // 削除
+    row.rowState = Driver.ROW_STATES.DELETED;
+    db.save(table, row)(function (err) {
+      if (err) {throw err;}
+
+      console.log('done');
+    });
+  });
+});
+```
 
 
