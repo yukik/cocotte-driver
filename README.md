@@ -315,8 +315,10 @@ rowStateが設定されていない場合は、saveは例外を発行させま�
 更新行または削除行は行番号(rowId)が必ず含まれる必要があります  
 
 ```
+var ROW_STATES = require('cocotte-row-states');
+
 var row = {
-  rowState: Driver.ROW_STATES.ADDED,
+  rowState: ROW_STATES.ADDED,
   name: 'foo'
 };
 
@@ -495,6 +497,7 @@ coモジュールやcocotte-flowモジュールを使用することで、非同
 
 ```
 var Driver = require('cocotte-driver-mongo');
+var ROW_STATES = require('cocotte-row-states');
 var db = new Driver();
 var flow = require('cocotte-flow');
 
@@ -506,17 +509,17 @@ flow(function*(){
   var row = {
     field1: 'foo',
     field2: 100,
-    rowState: Driver.ROW_STATES.ADDED
+    rowState: ROW_STATES.ADDED
   };
   yield db.save(table, row);
 
   // 更新
   row.field1 = 'bar';
-  row.rowState = Driver.ROW_STATES.MODIFIED;
+  row.rowState = ROW_STATES.MODIFIED;
   yield db.save(table, row);
 
   // 削除
-  row.rowState = Driver.ROW_STATES.DELETED;
+  row.rowState = ROW_STATES.DELETED;
   yield db.save(table, row);
 
   console.log('done');
@@ -528,6 +531,7 @@ cocotte-flowモジュールを使用しない場合は次のようになりま�
 ジェネレータが使用できる環境では前述の方法を推奨します
 
 ```
+var ROW_STATES = require('cocotte-row-states');
 var Driver = require('cocotte-driver-mongo');
 var db = new Driver();
 
@@ -537,19 +541,19 @@ var table = 'table1';
 var row = {
   field1: 'foo',
   field2: 100,
-  rowState: Driver.ROW_STATES.ADDED
+  rowState: ROW_STATES.ADDED
 };
 db.save(table, row)(function(err) {
   if (err) {throw err;}
 
   // 更新
   row.field1 = 'bar';
-  row.rowState = Driver.ROW_STATES.MODIFIED;
+  row.rowState = ROW_STATES.MODIFIED;
   db.save(table, row)(function (err) {
     if (err) {throw err;}
 
     // 削除
-    row.rowState = Driver.ROW_STATES.DELETED;
+    row.rowState = ROW_STATES.DELETED;
     db.save(table, row)(function (err) {
       if (err) {throw err;}
 
